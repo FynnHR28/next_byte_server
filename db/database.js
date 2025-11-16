@@ -13,10 +13,6 @@ const pool = new Pool({
     connectionTimeoutMillis: 2000,
 });
 
-client = await pool.connect();
-console.log('Database connected successfully');
-client.release();
-
 pool.on('error', (err, client) => {
   console.error('Unexpected error on idle client', err);
   process.exit(-1); // Exit process or handle error appropriately
