@@ -1,13 +1,14 @@
 import pool from '../../db/database.js';
-import bcrypt from 'bcrypt';
+import { hashPassword, checkPasswords } from '../../auth/auth.js';
 
 
-export const createUser = async (username, password, email, city, state, country, timezone) => {
+
+export const createUser = async (username, passwordHash, email, city, state, country, timezone) => {
     console.log(`Creating user: ${username}, ${email}`);
     const client = await pool.connect();
     console.log(`Database client connected for createUser`);
-    const passwordHash = await bcrypt.hash(password, 10);
     try {
+        const passwordHash = await hashPassword(password);
         const response = await client.query(`
             INSERT INTO public.user 
             (username, password_hash, email, city, state, country, timezone, is_active, created_at, updated_at)
@@ -30,9 +31,9 @@ export const createUser = async (username, password, email, city, state, country
 };
 
 export const getUser = async (id) => {
-    client = await pool.connect();
+    const client = await pool.connect();
     try {
-        response = await client.query(`
+        const response = await client.query(`
             SELECT * FROM public.user WHERE id = $1
         `,
         [id]);
@@ -44,3 +45,4 @@ export const getUser = async (id) => {
         client.release()
     }
 };
+
