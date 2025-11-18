@@ -1,6 +1,6 @@
-import { createUser } from "./user_functions.js"
 import { hashPassword } from "../../auth/auth.js";
-import { getUser } from "./user_functions.js";
+import { getUser, createUser } from "./user_functions.js";
+import { timestampsToDateResolver } from "../globals/field_resolvers.js";
 
 
 export default {
@@ -21,7 +21,6 @@ export default {
     },
 
     User: {
-        created_at: (user) => new Date(user.created_at).toISOString().split('T')[0],
-        updated_at: (user) => new Date(user.updated_at).toISOString().split('T')[0]
+        ...timestampsToDateResolver
     }
 }

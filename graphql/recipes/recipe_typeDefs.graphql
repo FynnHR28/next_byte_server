@@ -1,0 +1,39 @@
+type Query {
+    recipe(id: ID!): Recipe
+    recipes: [Recipe!]!
+}
+
+type Recipe {
+    id: ID!
+    name: String!
+    description: String
+    ingredients: [Ingredient!]!
+    instructions: [Instruction!]!
+    prep_time: Int
+    cook_time: Int
+    servings: Int
+    category: String
+    cuisine: String
+    difficulty: String
+    image_url: String
+    is_public: Boolean!
+    created_at: String!
+    updated_at: String!
+}
+
+type Ingredient {
+    id: ID!
+    name: String!
+    unit: String
+    quantity: Int 
+    created_at: String!
+    updated_at: String!
+}
+
+type Instruction {
+    id:ID!
+    position: Int!
+    description: String!
+    created_at: String!
+    updated_at: String!
+}
