@@ -1,5 +1,7 @@
-import { get } from "http";
-import { timestampsToDateResolver } from "../globals/field_resolvers";
+import { timestampsToDateResolver } from "../globals/global_res.js";
+import { getUser } from "../users/user_functions.js";
+import { getRecipe } from "./recipe_functions.js";
+import { getFieldContextById } from "../globals/global_functions.js";
 
 
 export default {
@@ -11,6 +13,22 @@ export default {
     Recipe: {
         ...timestampsToDateResolver,
         ingredients: (recipe) => getIngredientsByRecipeId(recipe.id),
-        instructions: (recipe) => getInstructionsByRecipeId(recipe.id)
+        instructions: (recipe) => getInstructionsByRecipeId(recipe.id),
+        difficulty: (recipe) => getFieldContextById(
+            recipe.ref_difficulty_id, 
+            'public.ref_difficulty', 
+            'name'
+        ),
+        category: (recipe) => getFieldContextById(
+            recipe.ref_recipe_category_id, 
+            'public.ref_recipe_category', 
+            'name'
+        ),
+        cuisine: (recipe) => getFieldContextById(
+            recipe.ref_cuisine_id, 
+            'public.ref_cuisine', 
+            'name'
+        ),
+        user: (recipe) => getUser(recipe.user_id)
     }
 }

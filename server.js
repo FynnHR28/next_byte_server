@@ -8,10 +8,12 @@ const PORT = 9000;
 const app = express();
 app.use(cors(), express.json());
 
+
 const apolloServer = new ApolloServer({ 
     typeDefs: mergedTypeDefs, 
     resolvers: mergedResolvers 
 });
+console.debug("Merged typeDefs and resolvers");
 
 await apolloServer.start();
 

@@ -5,6 +5,7 @@ type Query {
 
 type Recipe {
     id: ID!
+    user: User!
     name: String!
     description: String
     ingredients: [Ingredient!]!
