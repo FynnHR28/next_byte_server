@@ -1,0 +1,44 @@
+type Query {
+    cusine(id: ID!): Cuisine!
+    difficulty(id: ID!): Difficulty!
+    recipeCategory(id: ID!): recipeCategory!
+    uniit(id: ID!): Unit!
+    dietInfo(id: ID!): DietInfo!
+    role(id: ID!): Role!
+}
+
+type Cuisine {
+    id: ID!
+    name: String!
+    image_url: String
+}
+
+type Difficulty {
+    id: ID!
+    name: String!
+    image_url: String
+}
+
+type recipeCategory {
+    id: ID!
+    name: String!
+    image_url: String
+}
+
+type Unit {
+    id: ID!
+    name: String!
+    image_url: String
+}
+
+type DietInfo {
+    id: ID!
+    name: String!
+    image_url: String
+}
+
+type Role {
+    id: ID!
+    name: String!
+    image_url: String
+}

@@ -38,3 +38,7 @@ type Instruction {
     created_at: String!
     updated_at: String!
 }
+
+type Mutation {
+    updateRecipe(recipeInput: Recipe!): Recipe!
+}
