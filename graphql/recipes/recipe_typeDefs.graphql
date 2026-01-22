@@ -39,6 +39,6 @@ type Instruction {
     updated_at: String!
 }
 
-type Mutation {
-    updateRecipe(recipeInput: Recipe!): Recipe!
-}
+# type Mutation {
+#     updateRecipe(recipeInput: Recipe!): Recipe!
+# }
