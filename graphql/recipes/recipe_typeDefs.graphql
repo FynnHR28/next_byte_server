@@ -22,6 +22,20 @@ type Recipe {
     updated_at: String!
 }
 
+input RecipeInput {
+    id: ID!
+    name: String
+    description: String
+    prep_time: Int
+    cook_time: Int
+    servings: Int
+    category: String
+    cuisine: String
+    difficulty: String
+    image_url: String
+    is_public: Boolean
+}
+
 type Ingredient {
     id: ID!
     name: String!
@@ -39,6 +53,6 @@ type Instruction {
     updated_at: String!
 }
 
-# type Mutation {
-#     updateRecipe(recipeInput: Recipe!): Recipe!
-# }
+type Mutation {
+    updateRecipe(recipeInput: RecipeInput!): Recipe!
+}
