@@ -3,7 +3,7 @@ import { hashPassword, checkPasswords } from '../../auth/auth.js';
 
 
 
-export const createUser = async (username, passwordHash, email, city, state, country, timezone) => {
+export const createUser = async (username, password, email, city, state, country, timezone) => {
     console.log(`Creating user: ${username}, ${email}`);
     const client = await pool.connect();
     console.log(`Database client connected for createUser`);
@@ -46,3 +46,30 @@ export const getUser = async (id) => {
     }
 };
 
+export const getUserByEmail = async (email) => {
+    const client = await pool.connect();
+    try {
+        const response = await client.query(`
+            SELECT * FROM public.user WHERE email = $1
+        `,
+        [email]);
+        return response.rows[0];
+    } catch (err) {
+        console.error(`Error thrown by db during getUserByEmail ${ err }`)
+        throw new Error(`Database error while retrieving user by email: ${ err.message }`)
+    } finally {
+        client.release()
+    }
+};
+
+export const verifyUser = async (email, password) => {
+    const user = await getUserByEmail(email);
+    if (!user) {
+        throw new Error('Invalid email or password');
+    }
+    const isValid = await checkPasswords(password, user.password_hash);
+    if (!isValid) {
+        throw new Error('Invalid email or password');
+    }
+    return user;
+};

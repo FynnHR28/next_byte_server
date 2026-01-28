@@ -1,5 +1,4 @@
-import { hashPassword } from "../../auth/auth.js";
-import { getUser, createUser } from "./user_functions.js";
+import { getUser, createUser, verifyUser } from "./user_functions.js";
 import { timestampsToDateResolver } from "../globals/global_res.js";
 
 
@@ -10,14 +9,9 @@ export default {
     },
 
     Mutation: {
-        createUser: async (_, { username, passwordHash, email, city, state, country, timezone}) => {
-            try{
-                passwordHash = await hashPassword(passwordHash);
-                return await createUser(username, passwordHash, email, city, state, country, timezone);
-            } catch (err){
-                throw err;
-            }
-        }
+        createUser: (_, { username, password, email, city, state, country, timezone }) =>
+            createUser(username, password, email, city, state, country, timezone),
+        login: (_, { email, password }) => verifyUser(email, password)
     },
 
     User: {
