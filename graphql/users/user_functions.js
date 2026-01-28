@@ -1,8 +1,6 @@
 import pool from '../../db/database.js';
 import { hashPassword, checkPasswords } from '../../auth/auth.js';
 
-
-
 export const createUser = async (username, password, email, city, state, country, timezone) => {
     console.log(`Creating user: ${username}, ${email}`);
     const client = await pool.connect();
@@ -27,7 +25,6 @@ export const createUser = async (username, password, email, city, state, country
     finally {
         client.release()
     }
-
 };
 
 export const getUser = async (id) => {
