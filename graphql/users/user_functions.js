@@ -1,5 +1,9 @@
 import pool from '../../db/database.js';
 import { hashPassword, checkPasswords } from '../../auth/auth.js';
+import jwt  from 'jsonwebtoken'
+
+
+const APP_SECRET = process.env.SUPER_SECRET
 
 /* User related functions:
  Used internally and by user resolvers
@@ -113,7 +117,14 @@ export const verifyUser = async (email, password) => {
     [user.id]);
     client.release()
 
-    return user;
+    // generate jwt to send to client, sign with env key
+    const token = jwt.sign({ userId: user.id }, APP_SECRET, { expiresIn:"5m" });
+
+    // schema of AuthPayload type is string, user
+    return {
+        token,
+        user
+    }
 };
 
 
