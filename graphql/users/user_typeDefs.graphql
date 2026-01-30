@@ -25,4 +25,5 @@ type Mutation {
     login(email: String!, password: String!): User!
     updateUser(id: ID!, username: String, password: String, email: String, city: String, state: String, country: String, is_active: Boolean, timezone: String): User!
     deleteUser(id: ID!): Boolean!
+    logout(id:ID!): Boolean!
 }
