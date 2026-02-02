@@ -4,7 +4,7 @@ import { timestampsToDateResolver } from "../globals/global_res.js";
 
 export default {
     Query: {
-        user: (_, { id }) => getUser(id),
+        user: (_, __, context) => getUser(context.userId),
         users: () => getUsers()
     },
 
@@ -14,7 +14,7 @@ export default {
 
         login: (_, { email, password }) => verifyUser(email, password),
 
-        logout: (_, {id}) => logout(id)
+        logout: (_, __, context) => logout(context.userId)
 
     },
 

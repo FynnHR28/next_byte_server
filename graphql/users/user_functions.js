@@ -1,6 +1,9 @@
 import pool from '../../db/database.js';
 import { hashPassword, checkPasswords } from '../../auth/auth.js';
-import jwt  from 'jsonwebtoken'
+import jwt from 'jsonwebtoken'
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 
 const APP_SECRET = process.env.SUPER_SECRET
@@ -10,7 +13,10 @@ const APP_SECRET = process.env.SUPER_SECRET
  TODO: abstract database hits, set up database wrapper for query building, abstract server side field validation
 */
 
-// function used by createUser resolver, some fields may be null, TODO: abstract server side validators 
+/* ================================================================================================================================================== */
+/* Used in resolvers */ 
+
+// called by createUser mutation, some fields may be null, TODO: abstract server side validators 
 export const createUser = async (username, password, email, city, state, country, timezone) => {
     console.log(`Creating user: ${username}, ${email}`);
     const client = await pool.connect();
@@ -54,6 +60,7 @@ export const createUser = async (username, password, email, city, state, country
     }
 };
 
+// called by user query
 export const getUser = async (id) => {
     console.log(`Attempting to retrieve user with id: ${id}`)
     const client = await pool.connect();
@@ -71,6 +78,74 @@ export const getUser = async (id) => {
     }
 };
 
+// called by login mutation 
+export const verifyUser = async (email, password) => {
+
+    const user = await getUserByEmail(email);
+    // User email must exist
+    if (!user) {
+        throw new Error('Invalid email');
+    }
+    // Passwords must match
+    const isValid = await checkPasswords(password, user.password_hash);
+    if (!isValid) {
+        throw new Error('Incorrect password, please try again');
+    }
+    // Making sure to update user metadata upon successful login
+    const client = await pool.connect();
+    const response = await client.query(`
+            UPDATE public.user 
+            SET 
+            last_login = NOW(),
+            updated_at = NOW()
+            WHERE id = $1
+    `,
+    [user.id]);
+    client.release()
+
+    // generate jwt to send to client, sign with env key
+    const token = jwt.sign({ userId: user.id }, APP_SECRET, { expiresIn:"10m" });
+
+    // schema of AuthPayload type is string, user
+    return {
+        token,
+        user
+    }
+};
+
+// called by logout mutation
+export const logout = async (id) => {
+    const client = await pool.connect();
+    console.log('in backend logout')
+
+    try {
+        const user = await getUser(id)
+        console.log(`Attempting to logout user: ${user.id}`)
+        if(!user.is_active) {
+            throw new Error('User is not active, cannot log out')
+        }
+        // If user is active, update metadata
+        const response = await client.query(`
+            UPDATE public.user 
+            SET 
+            updated_at = NOW()
+            WHERE id = $1
+            RETURNING id
+        `,
+        [id]);
+        return true;
+    } catch (err) {
+        console.error(`Error thrown by db during logout ${ err }`)
+        throw new Error(`${err.message }`)
+    } finally {
+        client.release()
+    }
+}
+
+/* ================================================================================================================================================== */
+/* helper functions */ 
+
+
 export const getUserByEmail = async (email) => {
     const client = await pool.connect();
     try {
@@ -87,73 +162,5 @@ export const getUserByEmail = async (email) => {
     }
 };
 
-// Currently used for login resolver logic
-export const verifyUser = async (email, password) => {
-
-    const user = await getUserByEmail(email);
-    // User email must exist
-    if (!user) {
-        throw new Error('Invalid email');
-    }
-    // User must be inactive
-    if (user.is_active){
-        throw new Error('User is already active, cannot log in')
-    }
-    // Passwords must match
-    const isValid = await checkPasswords(password, user.password_hash);
-    if (!isValid) {
-        throw new Error('Incorrect password, please try again');
-    }
-    // Making sure to update user metadata upon successful login
-    const client = await pool.connect();
-    const response = await client.query(`
-            UPDATE public.user 
-            SET 
-            last_login = NOW(),
-            is_active = TRUE,
-            updated_at = NOW()
-            WHERE id = $1
-    `,
-    [user.id]);
-    client.release()
-
-    // generate jwt to send to client, sign with env key
-    const token = jwt.sign({ userId: user.id }, APP_SECRET, { expiresIn:"5m" });
-
-    // schema of AuthPayload type is string, user
-    return {
-        token,
-        user
-    }
-};
-
-
-export const logout = async (id) => {
-    const client = await pool.connect();
-
-    try {
-        const user = await getUser(id)
-        console.log(`Attempting to logout user: ${user.id}`)
-        if(!user.is_active) {
-            throw new Error('User is not active, cannot log out')
-        }
-        // If user is active, update metadata
-        const response = await client.query(`
-            UPDATE public.user 
-            SET 
-            is_active = FALSE,
-            updated_at = NOW()
-            WHERE id = $1
-            RETURNING id, is_active
-        `,
-        [id]);
-        return true;
-    } catch (err) {
-        console.error(`Error thrown by db during logout ${ err }`)
-        throw new Error(`${err.message }`)
-    } finally {
-        client.release()
-    }
-}
 
 

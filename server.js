@@ -3,10 +3,11 @@ import { expressMiddleware as apolloMiddleware } from "@as-integrations/express4
 import cors from 'cors';
 import express from 'express';
 import { mergedTypeDefs, mergedResolvers } from './graphql/index.js';
+import { authMiddleware } from "./auth/auth.js";
 
 const PORT = 9000;
 const app = express();
-app.use(cors(), express.json());
+app.use(cors(), express.json(), authMiddleware);
 
 
 const apolloServer = new ApolloServer({ 
@@ -17,7 +18,12 @@ console.debug("Merged typeDefs and resolvers");
 
 await apolloServer.start();
 
-app.use('/graphql', apolloMiddleware(apolloServer))
+app.use('/graphql', apolloMiddleware(apolloServer, {
+    // all resolvers have access to this context value, which will now hold user id set by jwtMiddleWare (if valid)
+    context: async ({ req, _ }) => {
+        return { userId: req.userId}
+    }
+ }))
 
 
 app.listen({ port: PORT}, () => {

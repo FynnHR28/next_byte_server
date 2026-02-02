@@ -1,5 +1,5 @@
 type Query {
-    user(id: ID!): User 
+    user: User!
     users: [User!]
     created_at: String!
     updated_at: String!
@@ -30,5 +30,5 @@ type Mutation {
     login(email: String!, password: String!): AuthPayload!
     updateUser(id: ID!, username: String, password: String, email: String, city: String, state: String, country: String, is_active: Boolean, timezone: String): User!
     deleteUser(id: ID!): Boolean!
-    logout(id:ID!): Boolean!
+    logout: Boolean!
 }
