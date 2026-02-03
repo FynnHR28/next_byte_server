@@ -19,21 +19,21 @@ export async function checkPasswords(plainPassword, hashedPassword) {
 }
 
 export const authMiddleware = (req, res, next) => {
-  const authHeader = req.headers.authorization;
-  if (authHeader) {
-    const token = authHeader.split(' ')[1]; // Get the token part (Bearer <token>)
-    try {
-      // Verify the token using your secret key
-      const user = jwt.verify(token, APP_SECRET); 
-      req.userId = user.userId; // Attach the user ID to the request object
-      console.log(`id of requester: ${req.userId}`)
-    } catch (err) {
-      console.error("Token verification failed:", err.message);
-      // Optionally handle errors, e.g., by setting req.userId to null/undefined
-      req.userId = null
-    }
+  // Get the token from cookies
+  const token = req.cookies?.access_token;
+
+  if (!token) {
+    req.userId = null;
+    return next();
   }
-  else {
+
+  try {
+    // Verify the token using secret key
+    const user = jwt.verify(token, APP_SECRET); 
+    req.userId = user.userId; // Attach the user ID to the request object
+    console.log(`id of requester: ${req.userId}`)
+  } catch (err) {
+    console.error("Token verification failed:", err.message);
     req.userId = null
   }
   next();
