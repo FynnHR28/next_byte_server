@@ -60,6 +60,28 @@ export const createUser = async (username, password, email, city, state, country
     }
 };
 
+export const deleteUser = async (id) => {
+    const client = await pool.connect();
+    console.log(`Attempting to delete user with id: ${id}`)
+    try {
+        const response = await client.query(`
+            DELETE FROM public.user 
+            WHERE id = $1
+            RETURNING id
+        `,
+        [id]);
+        if (response.rowCount === 0) {
+            throw new Error('User not found or could not be deleted');
+        }
+    } catch (err) {
+        console.error(`Error thrown by db during deleteUser ${ err }`)
+        throw new Error(`Database error while deleting user: ${ err.message }`)
+    } finally {
+        client.release()
+    }
+    return true;
+}
+
 export const deactivateUser = async (id) => {
     const client = await pool.connect();
     console.log(`Attempting to deactivate user with id: ${id}`)

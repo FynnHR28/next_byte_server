@@ -1,4 +1,4 @@
-import { getUser, deactivateUser, createUser, verifyUser, logout } from "./user_functions.js";
+import { getUser, deleteUser, deactivateUser, createUser, verifyUser, logout } from "./user_functions.js";
 import { timestampsToDateResolver } from "../globals/global_res.js";
 
 
@@ -11,6 +11,12 @@ export default {
     Mutation: {
         createUser: (_, { username, password, email, city, state, country, timezone }) =>
             createUser(username, password, email, city, state, country, timezone),
+
+        deleteUser: async (_, __, context) => {
+            const result = await deleteUser(context.userId);
+            context.res.clearCookie("access_token", { path: "/" }); // Clear the cookie
+            return result;
+        },
 
         deactivateUser: async (_, __, context) => {
             const result = await deactivateUser(context.userId);
