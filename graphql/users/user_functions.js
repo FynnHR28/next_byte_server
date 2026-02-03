@@ -60,6 +60,31 @@ export const createUser = async (username, password, email, city, state, country
     }
 };
 
+export const deactivateUser = async (id) => {
+    const client = await pool.connect();
+    console.log(`Attempting to deactivate user with id: ${id}`)
+    try {
+        const response = await client.query(`
+            UPDATE public.user 
+            SET 
+            is_active = FALSE,
+            updated_at = NOW()
+            WHERE id = $1
+            RETURNING id
+        `,
+        [id]);
+        if (response.rowCount === 0) {
+            throw new Error('User not found or could not be deactivated');
+        }
+    } catch (err) {
+        console.error(`Error thrown by db during deactivateUser ${ err }`)
+        throw new Error(`Database error while deactivating user: ${ err.message }`)
+    } finally {
+        client.release()
+    }
+    return true;
+}
+
 // called by user query
 export const getUser = async (id) => {
     console.log(`Attempting to retrieve user with id: ${id}`)
@@ -82,6 +107,10 @@ export const getUser = async (id) => {
 export const verifyUser = async (email, password) => {
 
     const user = await getUserByEmail(email);
+    // User must be active
+    if (user && !user.is_active) {
+        throw new Error('Account was deleted');
+    }
     // User email must exist
     if (!user) {
         throw new Error('Invalid email');
@@ -94,11 +123,11 @@ export const verifyUser = async (email, password) => {
     // Making sure to update user metadata upon successful login
     const client = await pool.connect();
     const response = await client.query(`
-            UPDATE public.user 
-            SET 
-            last_login = NOW(),
-            updated_at = NOW()
-            WHERE id = $1
+        UPDATE public.user 
+        SET 
+        last_login = NOW(),
+        updated_at = NOW()
+        WHERE id = $1
     `,
     [user.id]);
     client.release()

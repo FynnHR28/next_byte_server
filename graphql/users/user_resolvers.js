@@ -1,4 +1,4 @@
-import { getUser, createUser, verifyUser, logout } from "./user_functions.js";
+import { getUser, deactivateUser, createUser, verifyUser, logout } from "./user_functions.js";
 import { timestampsToDateResolver } from "../globals/global_res.js";
 
 
@@ -11,6 +11,11 @@ export default {
     Mutation: {
         createUser: (_, { username, password, email, city, state, country, timezone }) =>
             createUser(username, password, email, city, state, country, timezone),
+
+        deactivateUser: async (_, __, context) => {
+            const result = await deactivateUser(context.userId);
+            return result;
+        },
 
         login: async (_, { email, password }, context) => {
             const result = await verifyUser(email, password);
