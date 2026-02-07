@@ -1,4 +1,4 @@
-import { getUser, deleteUser, deactivateUser, createUser, verifyUser, logout } from "./user_functions.js";
+import { getUser, deleteUser, deactivateUser, activateUser, createUser, verifyUser, logout } from "./user_functions.js";
 import { timestampsToDateResolver } from "../globals/global_res.js";
 
 
@@ -20,6 +20,11 @@ export default {
 
         deactivateUser: async (_, __, context) => {
             const result = await deactivateUser(context.userId);
+            return result;
+        },
+
+        activateUser: async (_, { email }, context) => {
+            const result = await activateUser(email);
             return result;
         },
 

@@ -22,6 +22,12 @@ export const createUser = async (username, password, email, city, state, country
     const client = await pool.connect();
     console.log(`Database client connected for createUser`);
 
+    const user = await getUserByEmail(email);
+
+    if (user && !user.is_active) {
+        throw new Error('Account was deleted');
+    }
+
     // cannot have multiple emails
     const dup_email = await client.query(`
         SELECT COUNT(1) FROM public.user WHERE email = LOWER($1)
@@ -59,6 +65,31 @@ export const createUser = async (username, password, email, city, state, country
         client.release()
     }
 };
+
+export const activateUser = async (email) => {
+    const client = await pool.connect();
+    console.log(`Attempting to activate user with email: ${email}`)
+    try {
+        const response = await client.query(`
+            UPDATE public.user 
+            SET 
+            is_active = TRUE,
+            updated_at = NOW()
+            WHERE LOWER(email) = LOWER($1)
+            RETURNING id
+        `,
+        [email]);
+        if (response.rowCount === 0) {
+            throw new Error('User not found or could not be activated');
+        }
+    } catch (err) {
+        console.error(`Error thrown by db during activateUser ${ err }`)
+        throw new Error(`Database error while activating user: ${ err.message }`)
+    } finally {
+        client.release()
+    }
+    return true;
+}
 
 export const deleteUser = async (id) => {
     const client = await pool.connect();
@@ -129,10 +160,7 @@ export const getUser = async (id) => {
 export const verifyUser = async (email, password) => {
 
     const user = await getUserByEmail(email);
-    // User must be active
-    if (user && !user.is_active) {
-        throw new Error('Account was deleted');
-    }
+
     // User email must exist
     if (!user) {
         throw new Error('Invalid email');
@@ -142,6 +170,12 @@ export const verifyUser = async (email, password) => {
     if (!isValid) {
         throw new Error('Incorrect password, please try again');
     }
+
+    // User must be active
+    if (user && !user.is_active) {
+        throw new Error('Account was deleted');
+    }
+
     // Making sure to update user metadata upon successful login
     const client = await pool.connect();
     const response = await client.query(`
@@ -212,6 +246,5 @@ export const getUserByEmail = async (email) => {
         client.release()
     }
 };
-
 
 
