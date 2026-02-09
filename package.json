@@ -35,6 +35,8 @@
     "graphql-tag": "^2.12.6",
     "graphql-tools": "^9.0.24",
     "jsonwebtoken": "^9.0.3",
+    "natural": "^8.1.0",
+    "nltk-stopwords": "^1.0.3",
     "package.json": "^0.0.0",
     "pg": "^8.16.3",
     "postgres": "^3.4.7"

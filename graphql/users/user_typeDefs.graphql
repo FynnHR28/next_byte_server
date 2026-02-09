@@ -1,5 +1,6 @@
 type Query {
-    user: User!
+    me: User!
+    user(id:ID!): User!
     users: [User!]
     created_at: String!
     updated_at: String!
@@ -8,7 +9,7 @@ type Query {
 type User {
     id: ID!
     username: String!
-    password_hash: String!
+    role: String!
     email: String!
     city: String
     state: String

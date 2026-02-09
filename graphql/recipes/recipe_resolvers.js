@@ -1,13 +1,21 @@
 import { timestampsToDateResolver } from "../globals/global_res.js";
 import { getUser } from "../users/user_functions.js";
-import { getRecipe } from "./recipe_functions.js";
+import { getRecipe, createRecipe } from "./recipe_functions.js";
 import { getFieldContextById } from "../globals/global_functions.js";
+import { enforceAdminOnlyAccess, enforceAuthenticatedAccess } from '../serviceLayer/routes.js'
 
 
 export default {
     Query: {
         recipe: (_, { id }) => getRecipe(id),
         recipes: (_, { userId }) => getRecipes(userId)
+    },
+
+    Mutation: {
+        createRecipe: (_, { recipeInput }, context) => {
+            enforceAuthenticatedAccess(context.userId)
+            return createRecipe(recipeInput, context.userId)
+        }
     },
 
     Recipe: {

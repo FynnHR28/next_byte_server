@@ -31,7 +31,8 @@ export const authMiddleware = (req, res, next) => {
     // Verify the token using secret key
     const user = jwt.verify(token, APP_SECRET); 
     req.userId = user.userId; // Attach the user ID to the request object
-    console.log(`id of requester: ${req.userId}`)
+    req.userRole = user.userRole;
+    console.log(`id of requester: ${req.userId}, role: ${req.userRole}`)
   } catch (err) {
     console.error("Token verification failed:", err.message);
     req.userId = null

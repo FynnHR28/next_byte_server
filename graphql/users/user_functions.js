@@ -30,7 +30,7 @@ export const createUser = async (username, password, email, city, state, country
 
     // cannot have multiple emails
     const dup_email = await client.query(`
-        SELECT COUNT(1) FROM public.user WHERE email = LOWER($1)
+        SELECT COUNT(1) FROM public.user WHERE LOWER(email) = LOWER($1)
     `, [email])
     if(dup_email.rows[0].count > 0){
         throw new Error('Email is unavailable (case insensitive), please choose another')
@@ -38,7 +38,7 @@ export const createUser = async (username, password, email, city, state, country
 
     // cannot have multiple usernames
     const dup_username = await client.query(`
-        SELECT COUNT(1) FROM public.user WHERE username = LOWER($1)
+        SELECT COUNT(1) FROM public.user WHERE LOWER(username) = LOWER($1)
     `, [username])
     if(dup_username.rows[0].count > 0){
         throw new Error('Username is unavailable (case insensitive), please choose another')
@@ -48,9 +48,9 @@ export const createUser = async (username, password, email, city, state, country
         const passwordHash = await hashPassword(password);
         const response = await client.query(`
             INSERT INTO public.user 
-            (username, password_hash, email, city, state, country, timezone, is_active, created_at, updated_at, last_login)
+            (username, password_hash, email, city, state, country, timezone, is_active, created_at, updated_at, last_login, ref_user_role_id)
             VALUES
-            ($1, $2, $3, $4, $5, $6, $7, TRUE, NOW(), NOW(), NOW())
+            ($1, $2, $3, $4, $5, $6, $7, TRUE, NOW(), NOW(), NOW(), 2)
             RETURNING *;
         `,
         [username, passwordHash, email, city, state, country, timezone]);
@@ -138,15 +138,16 @@ export const deactivateUser = async (id) => {
     return true;
 }
 
-// called by user query
-export const getUser = async (id) => {
-    console.log(`Attempting to retrieve user with id: ${id}`)
+// called by user & me query
+export const getUser = async (targetUserId, actorId) => {
+    console.log(`Attempting to retrieve user with id: ${targetUserId}`)
     const client = await pool.connect();
     try {
         const response = await client.query(`
-            SELECT * FROM public.user WHERE id = $1
+            SELECT * FROM public.user 
+            WHERE id = $1 and is_active = TRUE
         `,
-        [id]);
+        [targetUserId]);
         return response.rows[0];
     } catch (err) {
         console.error(`Error thrown by db during getUser ${ err }`)
@@ -188,8 +189,22 @@ export const verifyUser = async (email, password) => {
     [user.id]);
     client.release()
 
+    // to attach user role context to the token
+    var userRole = "";
+    
+    switch (user.ref_user_role_id) {
+        case 1 : 
+            userRole = "admin";
+            break;
+        case 2 : 
+            userRole = "user";
+            break;
+
+        // as we add more
+    }
+
     // generate jwt to send to client, sign with env key
-    const token = jwt.sign({ userId: user.id }, APP_SECRET, { expiresIn:"10m" });
+    const token = jwt.sign({ userId: user.id, userRole: userRole }, APP_SECRET, { expiresIn:"10m" });
 
     // schema of AuthPayload type is string, user
     return {

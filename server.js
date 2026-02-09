@@ -13,6 +13,7 @@ app.use(cors({
     origin: `http://localhost:3000`, // Frontend origin
     credentials: true
 }));
+
 app.use(cookieParser());
 app.use(express.json(), authMiddleware);
 
@@ -27,9 +28,10 @@ await apolloServer.start();
 app.use('/graphql', apolloMiddleware(apolloServer, {
     // all resolvers have access to this context value, which will now hold user id set by jwtMiddleWare (if valid)
     context: async ({ req, res }) => { // Request and response, respectively
-        return { userId: req.userId, res }
+        return { userId: req.userId, userRole: req.userRole, res }
     }
  }))
+
 
 
 app.listen({ port: PORT}, () => {

@@ -8,8 +8,8 @@ type Recipe {
     user: User!
     name: String!
     description: String
-    ingredients: [Ingredient!]!
-    instructions: [Instruction!]!
+    ingredients: [Ingredient!]
+    instructions: [Instruction!]
     prep_time: Int
     cook_time: Int
     servings: Int
@@ -23,22 +23,34 @@ type Recipe {
 }
 
 input RecipeInput {
-    id: ID!
-    name: String
+    name: String!
     description: String
+    ingredients: [IngredientInput!]
+    instructions: [InstructionInput!]
     prep_time: Int
     cook_time: Int
     servings: Int
-    category: String
-    cuisine: String
-    difficulty: String
+    ref_recipe_category_id: Int
+    ref_cusine_id: Int
+    ref_difficulty_id: Int
     image_url: String
     is_public: Boolean
 }
 
+input IngredientInput {
+    display_text: String!
+    ref_unit_id: Int
+    quantity: Int 
+}
+
+input InstructionInput {
+    position: Int!
+    description: String!
+}
+
 type Ingredient {
     id: ID!
-    name: String!
+    display_text: String!
     unit: String
     quantity: Int 
     created_at: String!
@@ -55,4 +67,5 @@ type Instruction {
 
 type Mutation {
     updateRecipe(recipeInput: RecipeInput!): Recipe!
+    createRecipe(recipeInput: RecipeInput!): Recipe!
 }
