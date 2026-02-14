@@ -25,14 +25,45 @@ export const getRecipe = async (id) => {
     }
 }
 
+/* ================================================================================================================================================================ */
+/* DELETE RECIPE */
+
+export const deleteRecipe = async (recipeId, actorId, actorRole) => {
+    const client = await pool.connect();
+    const recipe = await getRecipe(recipeId);
+
+    // unauthorized guardrails
+    if(!recipe) throw new Error('Requested recipe does not exist');
+    if(recipe.user_id != actorId && actorRole != "admin") throw new Error('You are not authorized to request this action!');
+
+    try {
+        const response = await client.query(`
+                DELETE FROM public.recipe
+                WHERE id = $1
+        `, [recipeId])
+
+        return true
+    } 
+    catch(err){
+        throw new Error(`Server errored when attempting delete recipe: ${err}`)
+    } 
+    finally{
+        client.release()
+    }
+
+
+}
+
+/* ================================================================================================================================================================ */
+/* CREATE RECIPE */
+
 export const createRecipe = async (recipeInput, userId) => {
+    
     const client = await pool.connect();
     console.log(`in create recipe for user: ${userId}`);
     
- 
     // Extract the ingredients and instructions (if passed) since they are inserted into different tables
     const { ingredients, instructions, ...recipeData } = recipeInput; 
-    
     
     // Add the necessary data for insert that would not be passed from client
     const recipeDataFull = [{...recipeData, "user_id": userId, "created_at": "NOW()", "updated_at": "NOW()"}];
@@ -43,43 +74,48 @@ export const createRecipe = async (recipeInput, userId) => {
 
     try {
         // insert recipe and store the recipe id for inserting ingredients and instructions
-        // const recipeResponse = await client.query(
-        //     recipeInsert,
-        //     recipeValues
-        // );
-        // const recipeId = recipeResponse.rows[0].id;  
+        const recipeResponse = await client.query(
+            recipeInsert + '\n RETURNING id', // Making sure the response has the new id
+            recipeValues
+        );
+
+        const recipeId = recipeResponse.rows[0].id;  
+        console.log(`recipe created with id: ${recipeId}`);
+
+
+        // instructions are not required to create a recipe, see recipe_typeDefs.graphql
+        if (instructions) {
+
+            const instructionsFull = instructions.map((instr) => {
+                return {...instr, "recipe_id": recipeId, "created_at": "NOW()", "updated_at": "NOW()"}
+            });
+
+            const { query: instructionInsert, values: instructionValues } = generateRowInsert(instructionsFull, "public.recipe_instructions");
+            const instructionsResponse = await client.query(instructionInsert, instructionValues);
+        };
+     
         
-        // const instructionsFull = instructions.map((instr) => {
-        //     return {...instr, "recipe_id": recipeId, "created_at": "NOW()", "updated_at": "NOW()"}
-        // });
+        // ingredients are not required to create a recipe, see recipe_typeDefs.graphql
 
-        // const { query: instructionInsert, values: instructionValues } = generateRowInsert(instructionsFull, "public.recipe_instructions");
-
-        // const instructionsResponse = await client.query(instructionInsert, instructionValues);
-
-        const recipeId = 2;
-
-       
-
-        const ingredientsFull = ingredients.map((ingredient) => {
+        if (ingredients) {
             
-            // Initialize the server side fields that need to be added to each recipe_ingredient insert
-            let ingredientFieldsToAdd = {"recipe_id": recipeId, "created_at": "NOW()", "updated_at": "NOW()"}
-            
-            // returns a match object with the id of the canonical ingredient this ingredient was matched to (if a match was determined)
-            const canonicalIngredientMatch = rawIngredientToCanonicalPipeline(ingredient.display_text, canonicalIngredients);
-            // If there is a real match, add it into the fields to add
-            if(canonicalIngredientMatch.matchId) ingredientFieldsToAdd = {...ingredientFieldsToAdd, 'master_ingredient_id': canonicalIngredientMatch.matchId}
+            const ingredientsFull = ingredients.map((ingredient) => {
+                // Initialize the server side fields that need to be added to each recipe_ingredient insert
+                let ingredientFieldsToAdd = {"recipe_id": recipeId, "created_at": "NOW()", "updated_at": "NOW()"}
+                
+                // returns a match object with the id of the canonical ingredient this ingredient was matched to (if a match was determined)
+                const canonicalIngredientMatch = rawIngredientToCanonicalPipeline(ingredient.display_text, canonicalIngredients);
+                // If there is a real match, add it into the fields to add
+                if(canonicalIngredientMatch.matchId) ingredientFieldsToAdd = {...ingredientFieldsToAdd, 'canonical_ingredient_id': canonicalIngredientMatch.matchId}
+                return {...ingredient, ...ingredientFieldsToAdd}
+            });
 
-            return {...ingredient, ...ingredientFieldsToAdd}
-        });
-
-        const { query: ingredientsInsert, values: ingredientsValues } = generateRowInsert(ingredientsFull, "public.recipe_ingredient");
-
-        console.log('Generated insert for recipe ingredients!')
-        console.log(ingredientsInsert);
-        console.log(ingredientsValues);
-
+            const { query: ingredientsInsert, values: ingredientsValues } = generateRowInsert(ingredientsFull, "public.recipe_ingredient");
+            const ingredientsResponse = await client.query(ingredientsInsert, ingredientsValues);
+        
+        };
+        
+        return true;
 
         
     }
@@ -94,6 +130,33 @@ export const createRecipe = async (recipeInput, userId) => {
 
 
 /* ================================================================================================================================================================ */
+/* UPDATE RECIPE */
+
+export const updateRecipe = async (recipeId, actorId, actorRole) => {
+    const client = await pool.connect();
+    const recipe = await getRecipe(recipeId);
+    
+    // unauthorized guardrails
+    if(!recipe) throw new Error('Requested recipe does not exist');
+    if(recipe.user_id != actorId && actorRole != "admin") throw new Error('You are not authorized to request this action!');
+
+    try {
+        const response = await client.query(`
+                DELETE FROM public.recipe
+                WHERE id = $1
+        `, [recipeId])
+
+        return true
+    } 
+    catch(err){
+        throw new Error(`Server errored when attempting delete recipe: ${err}`)
+    } 
+    finally{
+        client.release()
+    }
 
 
+}
+
+/* ================================================================================================================================================================ */
         

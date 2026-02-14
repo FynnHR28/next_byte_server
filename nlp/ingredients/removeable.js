@@ -1,3 +1,4 @@
+// Hardcoded ruleset of known strings that can be removed without concern of altering the underlying base ingredient
 const KNOWN_UNITS_BASE = new Set([
   'lbs',
   'gram',

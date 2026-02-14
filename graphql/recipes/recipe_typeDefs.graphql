@@ -1,6 +1,7 @@
 type Query {
     recipe(id: ID!): Recipe
-    recipes: [Recipe!]!
+    my_recipes: [Recipe!]
+    recipes: [Recipe!]
 }
 
 type Recipe {
@@ -31,7 +32,7 @@ input RecipeInput {
     cook_time: Int
     servings: Int
     ref_recipe_category_id: Int
-    ref_cusine_id: Int
+    ref_cuisine_id: Int
     ref_difficulty_id: Int
     image_url: String
     is_public: Boolean
@@ -65,7 +66,10 @@ type Instruction {
     updated_at: String!
 }
 
+
+
 type Mutation {
     updateRecipe(recipeInput: RecipeInput!): Recipe!
-    createRecipe(recipeInput: RecipeInput!): Recipe!
+    createRecipe(recipeInput: RecipeInput!): Boolean!
+    deleteRecipe(recipeId: ID!): Boolean!
 }

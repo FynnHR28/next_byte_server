@@ -2,10 +2,6 @@
 import { normalizeIngredientInput } from './normalize.js';
 import { findCanonicalMatch } from './compute_similarity.js';
 
-
-
-
-
 export const rawIngredientToCanonicalPipeline = (rawInputText, canonicalCandidates) => {
   
   console.log(`In ingredient pipeline for input text: ${rawInputText}`)
