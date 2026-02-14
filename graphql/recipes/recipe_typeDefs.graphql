@@ -24,7 +24,23 @@ type Recipe {
 }
 
 input RecipeInput {
-    name: String!
+    name: String
+    description: String
+    ingredients: [IngredientInput!]
+    instructions: [InstructionInput!]
+    prep_time: Int
+    cook_time: Int
+    servings: Int
+    ref_recipe_category_id: Int
+    ref_cuisine_id: Int
+    ref_difficulty_id: Int
+    image_url: String
+    is_public: Boolean
+}
+
+input updateRecipeInput {
+    id: ID!
+    name: String
     description: String
     ingredients: [IngredientInput!]
     instructions: [InstructionInput!]
@@ -39,14 +55,16 @@ input RecipeInput {
 }
 
 input IngredientInput {
-    display_text: String!
+    id: ID
+    display_text: String
     ref_unit_id: Int
     quantity: Int 
 }
 
 input InstructionInput {
+    id: ID
     position: Int!
-    description: String!
+    description: String
 }
 
 type Ingredient {
@@ -69,7 +87,7 @@ type Instruction {
 
 
 type Mutation {
-    updateRecipe(recipeInput: RecipeInput!): Recipe!
+    updateRecipe(updateRecipeInput: updateRecipeInput!): Boolean!
     createRecipe(recipeInput: RecipeInput!): Boolean!
     deleteRecipe(recipeId: ID!): Boolean!
 }

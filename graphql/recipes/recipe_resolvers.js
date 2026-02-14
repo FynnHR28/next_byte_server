@@ -1,6 +1,6 @@
 import { timestampsToDateResolver } from "../globals/global_res.js";
 import { getUser } from "../users/user_functions.js";
-import { getRecipe, createRecipe, deleteRecipe } from "./recipe_functions.js";
+import { getRecipe, createRecipe, deleteRecipe, updateRecipe } from "./recipe_functions.js";
 import { getFieldContextById } from "../globals/global_functions.js";
 import { enforceAdminOnlyAccess, enforceAuthenticatedAccess } from '../serviceLayer/routes.js'
 
@@ -20,6 +20,10 @@ export default {
         deleteRecipe: (_, {recipeId}, context) => {
             enforceAuthenticatedAccess(context.userId)
             return deleteRecipe(recipeId, context.userId, context.userRole)
+        },
+        updateRecipe: (_, {updateRecipeInput}, context) => {
+            enforceAuthenticatedAccess(context.userId)
+            return updateRecipe(updateRecipeInput,context.userId, context.userRole);
         }
     },
 
