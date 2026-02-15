@@ -25,6 +25,75 @@ export const getRecipe = async (id) => {
     }
 }
 
+export const getRecipesForUser = async (userId) => {
+    if (!userId) {
+        throw new Error('User not authenticated');
+    }
+
+    const client = await pool.connect();
+    try {
+        const response = await client.query(
+            `SELECT * FROM public.recipe WHERE user_id = $1 ORDER BY updated_at DESC`,
+            [userId]
+        );
+        return response.rows;
+    } catch (err) {
+        console.error(`Error thrown by db during getRecipesForUser ${ err }`)
+        throw new Error(`Database error while retrieving recipes: ${ err.message }`)
+    } finally {
+        client.release()
+    }
+}
+
+export const getIngredientsByRecipeId = async (recipeId) => {
+    const client = await pool.connect();
+    try {
+        const response = await client.query(
+            `
+            SELECT 
+                ri.id,
+                ri.display_text,
+                ru.name AS unit,
+                ri.quantity,
+                ri.created_at,
+                ri.updated_at
+            FROM public.recipe_ingredient ri
+            LEFT JOIN public.ref_unit ru ON ri.ref_unit_id = ru.id
+            WHERE ri.recipe_id = $1
+            ORDER BY ri.id ASC
+            `,
+            [recipeId]
+        );
+        return response.rows;
+    } catch (err) {
+        console.error(`Error thrown by db during getIngredientsByRecipeId ${ err }`)
+        throw new Error(`Database error while retrieving ingredients: ${ err.message }`)
+    } finally {
+        client.release()
+    }
+}
+
+export const getInstructionsByRecipeId = async (recipeId) => {
+    const client = await pool.connect();
+    try {
+        const response = await client.query(
+            `
+            SELECT id, position, description, created_at, updated_at
+            FROM public.recipe_instruction
+            WHERE recipe_id = $1
+            ORDER BY position ASC
+            `,
+            [recipeId]
+        );
+        return response.rows;
+    } catch (err) {
+        console.error(`Error thrown by db during getInstructionsByRecipeId ${ err }`)
+        throw new Error(`Database error while retrieving instructions: ${ err.message }`)
+    } finally {
+        client.release()
+    }
+}
+
 /* ================================================================================================================================================================ */
 /* DELETE RECIPE */
 
@@ -90,7 +159,7 @@ export const createRecipe = async (recipeInput, userId) => {
                 return {...instr, "recipe_id": recipeId, "created_at": "NOW()", "updated_at": "NOW()"}
             });
 
-            const { query: instructionInsert, values: instructionValues } = generateRowInsert(instructionsFull, "public.recipe_instructions");
+            const { query: instructionInsert, values: instructionValues } = generateRowInsert(instructionsFull, "public.recipe_instruction");
             const instructionsResponse = await client.query(instructionInsert, instructionValues);
         };
      
