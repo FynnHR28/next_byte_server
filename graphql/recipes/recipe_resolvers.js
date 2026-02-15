@@ -1,13 +1,16 @@
 import { timestampsToDateResolver } from "../globals/global_res.js";
 import { getUser } from "../users/user_functions.js";
 import { getRecipe, createRecipe, deleteRecipe, updateRecipe } from "./recipe_functions.js";
-import { getFieldContextById } from "../globals/global_functions.js";
+import { getReferenceValueFromId } from "../globals/global_functions.js";
 import { enforceAdminOnlyAccess, enforceAuthenticatedAccess } from '../serviceLayer/routes.js'
 
 
 export default {
     Query: {
-        recipe: (_, { id }, context) => getRecipe(id),
+        recipe: (_, { id }, context) => {
+            enforceAuthenticatedAccess(context.userId)
+            return getRecipe(id);
+        },
         my_recipes: (_, { userId }, context) => getRecipes(userId),
         recipes: (_, __, context) => getRecipes(context.userId)
     },
@@ -31,20 +34,17 @@ export default {
         ...timestampsToDateResolver,
         ingredients: (recipe) => getIngredientsByRecipeId(recipe.id),
         instructions: (recipe) => getInstructionsByRecipeId(recipe.id),
-        difficulty: (recipe) => getFieldContextById(
+        difficulty: (recipe) => getReferenceValueFromId(
             recipe.ref_difficulty_id, 
-            'public.ref_difficulty', 
-            'name'
+            'ref_difficulty'
         ),
-        category: (recipe) => getFieldContextById(
+        category: (recipe) => getReferenceValueFromId(
             recipe.ref_recipe_category_id, 
-            'public.ref_recipe_category', 
-            'name'
+            'ref_recipe_category'
         ),
-        cuisine: (recipe) => getFieldContextById(
+        cuisine: (recipe) => getReferenceValueFromId(
             recipe.ref_cuisine_id, 
-            'public.ref_cuisine', 
-            'name'
+            'ref_cuisine'
         ),
         user: (recipe) => getUser(recipe.user_id)
     }

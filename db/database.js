@@ -1,6 +1,6 @@
 import { Pool } from 'pg';
 import dotenv from 'dotenv';
-
+import { initDbCache } from './init_dbcache.js'
 dotenv.config();
 
 const pool = new Pool({
@@ -21,23 +21,8 @@ pool.on('connect', (client) => {
 
 // We can add more objects to this cache if it becomes apparent we might want some things easily accesible and not 
 // hard coded in backend or frontend code
-const initDbCache = async () => {
-  
-  const client = await pool.connect()
-  
-  const canonicalResp = await client.query(`
-      SELECT id, canonical_name from public.canonical_ingredient;
-  `);
 
-  const canonicalIngredients = canonicalResp.rows.reduce( (acc, currData) => {
-      acc[currData.canonical_name] = currData.id;
-      return acc
-  }, {});
-
-  return {"canonicalIngredients": canonicalIngredients}
-}
-
-export const dbCache = await initDbCache()
+export const dbCache = await initDbCache(pool)
 console.log('Database cache initiated')
 
 export default pool; 
