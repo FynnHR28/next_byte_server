@@ -29,6 +29,7 @@ type AuthPayload {
 type Mutation {
     createUser(username: String!, password: String!, email: String!, city: String, state: String, country: String, timezone: String): User!
     login(email: String!, password: String!): AuthPayload!
+    refreshToken: AuthPayload!
     updateUser(id: ID!, username: String, password: String, email: String, city: String, state: String, country: String, is_active: Boolean, timezone: String): User!
     deleteUser: Boolean!
     deactivateUser: Boolean!

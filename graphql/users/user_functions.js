@@ -1,17 +1,38 @@
 import pool from '../../db/database.js';
-import { hashPassword, checkPasswords } from '../../auth/auth.js';
-import jwt from 'jsonwebtoken'
+import { hashPassword, checkPasswords, signAccessToken, generateRefreshToken, hashRefreshToken } from '../../auth/auth.js';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
 
-const APP_SECRET = process.env.SUPER_SECRET
-
 /* User related functions:
  Used internally and by user resolvers
  TODO: abstract database hits, set up database wrapper for query building, abstract server side field validation
 */
+
+const resolveUserRole = (refUserRoleId) => {
+    switch (refUserRoleId) {
+        case 1:
+            return "admin";
+        case 2:
+            return "user";
+        default:
+            return "user";
+    }
+};
+
+const issueSessionTokens = async (userId, userRole, client) => {
+    const token = signAccessToken(userId, userRole);
+    const refreshToken = generateRefreshToken();
+    const refreshTokenHash = hashRefreshToken(refreshToken);
+
+    await client.query(`
+        INSERT INTO public.user_refresh_token (user_id, token_hash, expires_at, created_at, updated_at)
+        VALUES ($1, $2, NOW() + INTERVAL '30 days', NOW(), NOW())
+    `, [userId, refreshTokenHash]);
+
+    return { token, refreshToken };
+};
 
 /* ================================================================================================================================================== */
 /* Used in resolvers */ 
@@ -179,37 +200,133 @@ export const verifyUser = async (email, password) => {
 
     // Making sure to update user metadata upon successful login
     const client = await pool.connect();
-    const response = await client.query(`
-        UPDATE public.user 
-        SET 
-        last_login = NOW(),
-        updated_at = NOW()
-        WHERE id = $1
-    `,
-    [user.id]);
-    client.release()
+    try {
+        await client.query(`
+            UPDATE public.user 
+            SET 
+            last_login = NOW(),
+            updated_at = NOW()
+            WHERE id = $1
+        `,
+        [user.id]);
 
-    // to attach user role context to the token
-    var userRole = "";
-    
-    switch (user.ref_user_role_id) {
-        case 1 : 
-            userRole = "admin";
-            break;
-        case 2 : 
-            userRole = "user";
-            break;
+        // to attach user role context to the token
+        const userRole = resolveUserRole(user.ref_user_role_id);
+        const { token, refreshToken } = await issueSessionTokens(user.id, userRole, client);
+        // Clean up old refresh tokens
+        await client.query(`
+            DELETE FROM public.user_refresh_token
+            WHERE user_id = $1 AND (revoked_at IS NOT NULL OR expires_at <= NOW())
+        `, [user.id]);
 
-        // as we add more
+        // schema of AuthPayload type is string (token), string (refreshToken), user
+        return {
+            token,
+            refreshToken,
+            user
+        }
+    } finally {
+        client.release();
     }
+};
 
-    // generate jwt to send to client, sign with env key
-    const token = jwt.sign({ userId: user.id, userRole: userRole }, APP_SECRET, { expiresIn:"10m" });
+export const refreshSession = async (rawRefreshToken) => {
+    const refreshTokenHash = hashRefreshToken(rawRefreshToken);
+    const client = await pool.connect();
+    let didCommit = false;
 
-    // schema of AuthPayload type is string, user
-    return {
-        token,
-        user
+    try {
+        // Start queries
+        await client.query("BEGIN");
+
+        // Get the refresh token record and the user info using associated user id
+        const tokenRecord = await client.query(`
+            SELECT rt.id, rt.user_id, rt.expires_at, rt.revoked_at, u.ref_user_role_id, u.is_active
+            FROM public.user_refresh_token rt
+            INNER JOIN public.user u ON u.id = rt.user_id
+            WHERE rt.token_hash = $1
+            FOR UPDATE
+        `, [refreshTokenHash]);
+
+        if (tokenRecord.rowCount === 0) {
+            throw new Error("Invalid refresh token");
+        }
+
+        const tokenRow = tokenRecord.rows[0];
+
+        // Check if token is revoked, expired, or user is inactive
+        if (tokenRow.revoked_at || new Date(tokenRow.expires_at) <= new Date() || !tokenRow.is_active) {
+            await client.query(`
+                UPDATE public.user_refresh_token
+                SET revoked_at = NOW(), updated_at = NOW()
+                WHERE id = $1 AND revoked_at IS NULL
+            `, [tokenRow.id]);
+            await client.query("COMMIT");
+            didCommit = true;
+            throw new Error("Refresh token expired or revoked");
+        }
+
+        // Revoke the used refresh token
+        await client.query(`
+            UPDATE public.user_refresh_token
+            SET revoked_at = NOW(), updated_at = NOW()
+            WHERE id = $1
+        `, [tokenRow.id]);
+
+        // Issue new session tokens
+        const userRole = resolveUserRole(tokenRow.ref_user_role_id);
+        const { token, refreshToken } = await issueSessionTokens(tokenRow.user_id, userRole, client);
+        // Check the user is still active (like if they deactivated their account while doing this)
+        const userResponse = await client.query(`
+            SELECT * FROM public.user
+            WHERE id = $1 AND is_active = TRUE
+        `, [tokenRow.user_id]);
+        const user = userResponse.rows[0];
+        if (!user) {
+            throw new Error("User no longer active");
+        }
+
+        await client.query("COMMIT");
+        didCommit = true;
+        return { token, refreshToken, user };
+    } catch (err) {
+        if (!didCommit) {
+            await client.query("ROLLBACK");
+        }
+        throw err;
+    } finally {
+        client.release();
+    }
+};
+
+// Revoke a specific refresh token. Called by logout mutation
+export const revokeRefreshToken = async (rawRefreshToken) => {
+    const refreshTokenHash = hashRefreshToken(rawRefreshToken);
+    const client = await pool.connect();
+
+    try {
+        await client.query(`
+            UPDATE public.user_refresh_token
+            SET revoked_at = NOW(), updated_at = NOW()
+            WHERE token_hash = $1 AND revoked_at IS NULL
+        `, [refreshTokenHash]);
+    } finally {
+        client.release();
+    }
+};
+
+// Revoke all refresh tokens for a user. Called by logout and deactivateUser mutations
+export const revokeAllRefreshTokensForUser = async (userId) => {
+    const client = await pool.connect();
+
+    try {
+        await client.query(`
+            UPDATE public.user_refresh_token
+            SET revoked_at = NOW(), updated_at = NOW()
+            WHERE user_id = $1 AND revoked_at IS NULL
+        `, [userId]);
+    } finally {
+        client.release();
     }
 };
 
@@ -261,5 +378,3 @@ export const getUserByEmail = async (email) => {
         client.release()
     }
 };
-
-

@@ -1,8 +1,9 @@
 import { getUser, deleteUser, deactivateUser, activateUser, 
-    createUser, verifyUser, logout 
+    createUser, verifyUser, logout, refreshSession, revokeRefreshToken, revokeAllRefreshTokensForUser
 } from "./user_functions.js";
 import { timestampsToDateResolver } from "../globals/global_res.js";
 import { enforceAdminOnlyAccess, enforceAuthenticatedAccess } from "../serviceLayer/routes.js";
+import { accessCookieOptions, refreshCookieOptions } from "../../auth/auth.js";
 
 
 export default {
@@ -24,14 +25,19 @@ export default {
 
         deleteUser: async (_, __, context) => {
             enforceAdminOnlyAccess(context.userId);
+            await revokeAllRefreshTokensForUser(context.userId);
             const result = await deleteUser(context.userId);
             context.res.clearCookie("access_token", { path: "/" }); // Clear the cookie
+            context.res.clearCookie("refresh_token", { path: "/" });
             return result;
         },
 
         deactivateUser: async (_, __, context) => {
             enforceAuthenticatedAccess(context.userId);
+            await revokeAllRefreshTokensForUser(context.userId);
             const result = await deactivateUser(context.userId);
+            context.res.clearCookie("access_token", { path: "/" });
+            context.res.clearCookie("refresh_token", { path: "/" });
             return result;
         },
 
@@ -43,20 +49,32 @@ export default {
         login: async (_, { email, password }, context) => {
             if(context.userId) throw new Error("user is already logged in");
             const result = await verifyUser(email, password);
-            context.res.cookie("access_token", result.token, {
-                httpOnly: true,
-                sameSite: "lax",
-                secure: false, // TODO: Change this to true for production (I think it just changes it to HTTPS only)
-                path: "/",
-                maxAge: 20 * 60 * 1000, // 5 minutes
-            });
+            context.res.cookie("access_token", result.token, accessCookieOptions);
+            context.res.cookie("refresh_token", result.refreshToken, refreshCookieOptions);
+            return result;
+        },
+
+        refreshToken: async (_, __, context) => {
+            const rawRefreshToken = context.req.cookies?.refresh_token;
+            if (!rawRefreshToken) {
+                throw new Error("No refresh token provided");
+            }
+
+            const result = await refreshSession(rawRefreshToken);
+            context.res.cookie("access_token", result.token, accessCookieOptions);
+            context.res.cookie("refresh_token", result.refreshToken, refreshCookieOptions);
             return result;
         },
 
         logout: async (_, __, context) => {
             enforceAuthenticatedAccess(context.userId);
             await logout(context.userId); // Sets is_active to false for the user
+            const rawRefreshToken = context.req.cookies?.refresh_token;
+            if (rawRefreshToken) {
+                await revokeRefreshToken(rawRefreshToken);
+            }
             context.res.clearCookie("access_token", { path: "/" }); // Clear the cookie
+            context.res.clearCookie("refresh_token", { path: "/" });
             return true;
         }
     },

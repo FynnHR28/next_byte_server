@@ -28,7 +28,7 @@ await apolloServer.start();
 app.use('/graphql', apolloMiddleware(apolloServer, {
     // all resolvers have access to this context value, which will now hold user id set by jwtMiddleWare (if valid)
     context: async ({ req, res }) => { // Request and response, respectively
-        return { userId: req.userId, userRole: req.userRole, res }
+        return { userId: req.userId, userRole: req.userRole, req, res }
     }
  }))
 
@@ -38,6 +38,5 @@ app.listen({ port: PORT}, () => {
     console.log(`Server running on port ${PORT}`);
     console.log(`GraphQL endpoint: http://localhost:${PORT}/graphql`)
 })
-
 
 
