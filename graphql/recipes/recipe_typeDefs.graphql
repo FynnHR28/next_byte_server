@@ -2,6 +2,8 @@ type Query {
     recipe(id: ID!): Recipe
     my_recipes: [Recipe!]
     recipes: [Recipe!]
+    recipeBooks: [RecipeBook!]
+    recipesForRecipeBook(recipeBookId: ID!): [Recipe!]
 }
 
 type Recipe {
@@ -84,10 +86,20 @@ type Instruction {
     updated_at: String!
 }
 
-
+type RecipeBook {
+    id: ID!
+    name: String!
+    user_id: ID!
+    created_at: String!
+    updated_at: String!
+}
 
 type Mutation {
     updateRecipe(updateRecipeInput: updateRecipeInput!): Boolean!
     createRecipe(recipeInput: RecipeInput!): Boolean!
     deleteRecipe(recipeId: ID!): Boolean!
+    createRecipeBook(name: String!): ID!
+    deleteRecipeBook(recipeBookId: ID!): Boolean!
+    addRecipeToRecipeBook(recipeId: ID!, recipeBookId: ID!): Boolean!
+    removeRecipeFromRecipeBook(recipeId: ID!, recipeBookId: ID!): Boolean!
 }
