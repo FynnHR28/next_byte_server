@@ -211,6 +211,26 @@ export const updateRecipe = async (updateRecipeInput, actorId, actorRole) => {
         // If ingredients were passed, make the necessary inserts and updates
         if (ingredients) {
               console.log('updating ingredients')
+            // Remove any ingredients that were deleted on the client.
+            const ingredientIds = ingredients
+                .filter((ing) => ing.id)
+                .map((ing) => Number(ing.id))
+                .filter((id) => !Number.isNaN(id));
+
+            if (ingredientIds.length > 0) {
+                // Map ingredient ids that still exist and delete those that aren't in the list
+                const placeholders = ingredientIds.map((_, idx) => `$${idx + 2}`).join(', ');
+                await client.query(
+                    `DELETE FROM public.recipe_ingredient WHERE recipe_id = $1 AND id NOT IN (${placeholders})`,
+                    [recipe.id, ...ingredientIds]
+                );
+            } else {
+                // If no ingredient ids were passed (all were deleted), delete all ingredients for the recipe
+                await client.query(
+                    `DELETE FROM public.recipe_ingredient WHERE recipe_id = $1`,
+                    [recipe.id]
+                );
+            }
             // ingredients with an id passed from the client are ingredients to update
             const ingredientsToUpdate = ingredients.filter(ing => 'id' in ing );
             if (ingredientsToUpdate.length > 0) {
@@ -232,6 +252,26 @@ export const updateRecipe = async (updateRecipeInput, actorId, actorRole) => {
         // if Instructions were passed, make the necessary inserts and updates
         if(instructions){
               console.log('updating instr')
+            // Remove any instructions that were deleted on the client.
+            const instructionIds = instructions
+                .filter((instr) => instr.id)
+                .map((instr) => Number(instr.id))
+                .filter((id) => !Number.isNaN(id));
+
+            if (instructionIds.length > 0) {
+                // Map instruction ids that still exist and delete those that aren't in the list
+                const placeholders = instructionIds.map((_, idx) => `$${idx + 2}`).join(', ');
+                await client.query(
+                    `DELETE FROM public.recipe_instruction WHERE recipe_id = $1 AND id NOT IN (${placeholders})`,
+                    [recipe.id, ...instructionIds]
+                );
+            } else {
+                // If no instruction ids were passed (all were deleted), delete all instructions for the recipe
+                await client.query(
+                    `DELETE FROM public.recipe_instruction WHERE recipe_id = $1`,
+                    [recipe.id]
+                );
+            }
             // ingredients with an id passed from the client are ingredients to update
             const instructionsToUpdate = instructions.filter(instr => 'id' in instr );
             if (instructionsToUpdate.length > 0) {
