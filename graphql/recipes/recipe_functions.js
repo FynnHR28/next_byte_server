@@ -251,7 +251,7 @@ export const updateRecipe = async (updateRecipeInput, actorId, actorRole) => {
         }
         // if Instructions were passed, make the necessary inserts and updates
         if(instructions){
-              console.log('updating instr')
+            console.log('updating instr')
             // Remove any instructions that were deleted on the client.
             const instructionIds = instructions
                 .filter((instr) => instr.id)
@@ -359,20 +359,25 @@ export const getRecipesForRecipeBook = async (recipeBookId, userId) => {
 /**
  * Create a new recipe book for a given user.
  * 
- * @param name - The name of the recipe book to create
+ * @param recipeBookInput - The input object containing the name and isPublic fields for the recipe book
  * @param userId - The user id of the owner of the recipe book
  * @returns The id of the newly created recipe book
  */
-export const createRecipeBook = async (name, userId) => {
+export const createRecipeBook = async (recipeBookInput, userId) => {
+    const { name, isPublic } = recipeBookInput; 
+    if (!name?.trim()) {
+        throw new Error('Recipe book name is required');
+    }
+
     const client = await pool.connect();
     try {
         const response = await client.query(
             `
-            INSERT INTO public.recipe_book (name, user_id, created_at, updated_at)
-            VALUES ($1, $2, NOW(), NOW())
+            INSERT INTO public.recipe_book (name, is_public, user_id, created_at, updated_at)
+            VALUES ($1, $2, $3, NOW(), NOW())
             RETURNING id
             `,
-            [name, userId]
+            [name.trim(), isPublic ?? false, userId]
         );
         return response.rows[0].id;
     } catch (err) {
@@ -401,11 +406,14 @@ export const deleteRecipeBook = async (recipeBookId, userId) => {
     }
 
     try {
-        await client.query(`
+        const response = await client.query(`
                 DELETE FROM public.recipe_book
                 WHERE id = $1
         `, [recipeBookId]
         );
+        if (response.rowCount === 0) {
+            throw new Error('Recipe book could not be deleted');
+        }
         return true
     } 
     catch(err){
@@ -417,48 +425,66 @@ export const deleteRecipeBook = async (recipeBookId, userId) => {
 }
 
 /**
- * Checks if the recipe book belongs to the user and if so, adds the given recipe to the given recipe book.
+ * Updates the name and/or isPublic fields of a recipe book if it belongs to currently signed in user.
  * 
- * @param recipeId - The recipe id of the recipe to add to the recipe book
- * @param recipeBookId - The recipe book id of the recipe book to add the recipe to
+ * @param recipeBookId - The id of the recipe book to update
+ * @param recipeBookInput - The fields to update for the recipe book (name and/or isPublic)
  * @param userId - The user id of the owner of the recipe book
- * @returns True if the recipe was successfully added to the recipe book, false otherwise
+ * @returns True if the recipe book was successfully updated, false otherwise
  */
-export const addRecipeToRecipeBook = async (recipeId, recipeBookId, userId) => {
-    const client = await pool.connect();
-    try {
-        // Check if the recipe book belongs to the user
-        const belongsToUser = await checkIfRecipeBookBelongsToUser(recipeBookId, userId);
-        if (!belongsToUser) {
-            throw new Error('Recipe book not found or does not belong to user');
-        }
+export const updateRecipeBook = async (recipeBookId, recipeBookInput, userId) => {
+    const { name, isPublic } = recipeBookInput;
 
-        // Add the recipe to the recipe book
-        await client.query(
+    const client = await pool.connect();
+
+    // Check if the recipe book belongs to the user
+    const belongsToUser = await checkIfRecipeBookBelongsToUser(recipeBookId, userId);
+    if (!belongsToUser) {
+        throw new Error('Recipe book not found or does not belong to user');
+    }
+
+    try {
+        const response = await client.query(
             `
-            INSERT INTO public.recipe_book_recipe (recipe_book_id, recipe_id, user_id, created_at, updated_at)
-            VALUES ($1, $2, $3, NOW(), NOW())
+            UPDATE public.recipe_book
+            SET
+                name = COALESCE($1, name),
+                is_public = COALESCE($2, is_public),
+                updated_at = NOW()
+            WHERE id = $3
             `,
-            [recipeBookId, recipeId, userId]
+            [name ?? null, isPublic ?? null, recipeBookId]
         );
+        if (response.rowCount === 0) {
+            throw new Error('Recipe book could not be updated');
+        }
         return true;
     } catch (err) {
-        console.error(`Error thrown by db during addRecipeToRecipeBook ${ err }`)
-        throw new Error(`Database error while adding recipe to recipe book: ${ err.message }`)
+        console.error(`Error thrown by db during updateRecipeBook ${ err }`)
+        throw new Error(`Database error while updating recipe book: ${ err.message }`)
     } finally {
         client.release()
     }
 }
 
 /**
- * Checks if the recipe book belongs to the user and if so, deletes the given recipe from the given recipe book.
+ * Checks if the recipe book belongs to the user and if so, adds the given recipes to the given recipe book.
  * 
- * @param recipeId - The recipe id of the recipe to delete from the recipe book
- * @param recipeBookId - The recipe book id of the recipe book to delete the recipe from
+ * @param recipeIds - The recipe ids to add to the recipe book
+ * @param recipeBookId - The recipe book id of the recipe book to add the recipe to
  * @param userId - The user id of the owner of the recipe book
- * @returns True if the recipe was successfully deleted from the recipe book, false otherwise
+ * @returns True if the recipes were processed successfully, false otherwise
  */
-export const removeRecipeFromRecipeBook = async (recipeId, recipeBookId, userId) => {
+export const addRecipesToRecipeBook = async (recipeIds, recipeBookId, userId) => {
+    if (!Array.isArray(recipeIds) || recipeIds.length < 1) {
+        throw new Error('recipeIds must contain at least one recipe id');
+    }
+
+    const parsedRecipeIds = [...new Set(recipeIds.map((id) => Number(id)).filter((id) => !Number.isNaN(id)))];
+    if (parsedRecipeIds.length < 1) {
+        throw new Error('No valid recipe ids were provided');
+    }
+
     const client = await pool.connect();
     try {
         // Check if the recipe book belongs to the user
@@ -467,18 +493,76 @@ export const removeRecipeFromRecipeBook = async (recipeId, recipeBookId, userId)
             throw new Error('Recipe book not found or does not belong to user');
         }
 
-        // Delete the recipe from the recipe book
+        const ownedRecipeIds = await getOwnedRecipeIds(parsedRecipeIds, userId);
+        if (ownedRecipeIds.length !== parsedRecipeIds.length) {
+            throw new Error('One or more recipes do not belong to user');
+        }
+
+        // Add recipes to the recipe book. Duplicates are ignored.
+        await client.query(
+            `
+            INSERT INTO public.recipe_book_recipe (recipe_book_id, recipe_id, user_id, created_at, updated_at)
+            SELECT $1, recipe_id, $2, NOW(), NOW()
+            FROM UNNEST($3::int[]) AS recipe_id
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM public.recipe_book_recipe existing
+                WHERE existing.recipe_book_id = $1
+                  AND existing.recipe_id = recipe_id
+                  AND existing.user_id = $2
+            )
+            `,
+            [recipeBookId, userId, ownedRecipeIds]
+        );
+
+        return true;
+    } catch (err) {
+        console.error(`Error thrown by db during addRecipesToRecipeBook ${ err }`)
+        throw new Error(`Database error while adding recipes to recipe book: ${ err.message }`)
+    } finally {
+        client.release()
+    }
+}
+
+/**
+ * Checks if the recipe book belongs to the user and if so, deletes the given recipes from the given recipe book.
+ * 
+ * @param recipeIds - The recipe ids to delete from the recipe book
+ * @param recipeBookId - The recipe book id of the recipe book to delete the recipe from
+ * @param userId - The user id of the owner of the recipe book
+ * @returns True if the recipes were processed successfully, false otherwise
+ */
+export const removeRecipesFromRecipeBook = async (recipeIds, recipeBookId, userId) => {
+    if (!Array.isArray(recipeIds) || recipeIds.length < 1) {
+        throw new Error('recipeIds must contain at least one recipe id');
+    }
+
+    const parsedRecipeIds = [...new Set(recipeIds.map((id) => Number(id)).filter((id) => !Number.isNaN(id)))];
+    if (parsedRecipeIds.length < 1) {
+        throw new Error('No valid recipe ids were provided');
+    }
+
+    const client = await pool.connect();
+    try {
+        // Check if the recipe book belongs to the user
+        const belongsToUser = await checkIfRecipeBookBelongsToUser(recipeBookId, userId);
+        if (!belongsToUser) {
+            throw new Error('Recipe book not found or does not belong to user');
+        }
+        
+        // Delete recipes from the recipe book.
         await client.query(
             `
             DELETE FROM public.recipe_book_recipe 
-            WHERE recipe_book_id = $1 AND recipe_id = $2 AND user_id = $3
+            WHERE recipe_book_id = $1 AND recipe_id = ANY($2::int[]) AND user_id = $3
             `,
-            [recipeBookId, recipeId, userId]
+            [recipeBookId, parsedRecipeIds, userId]
         );
+
         return true;
     } catch (err) {
-        console.error(`Error thrown by db during removeRecipeFromRecipeBook ${ err }`)
-        throw new Error(`Database error while removing recipe from recipe book: ${ err.message }`)
+        console.error(`Error thrown by db during removeRecipesFromRecipeBook ${ err }`)
+        throw new Error(`Database error while removing recipes from recipe book: ${ err.message }`)
     } finally {
         client.release()
     }
@@ -497,6 +581,22 @@ const checkIfRecipeBookBelongsToUser = async (recipeBookId, userId) => {
     } catch (err) {
         console.error(`Error thrown by db during checkIfRecipeBookBelongsToUser ${ err }`)
         throw new Error(`Database error while checking recipe book ownership: ${ err.message }`)
+    } finally {
+        client.release()
+    }
+}
+
+const getOwnedRecipeIds = async (recipeIds, userId) => {
+    const client = await pool.connect();
+    try {
+        const response = await client.query(
+            `SELECT id FROM public.recipe WHERE id = ANY($1::int[]) AND user_id = $2`,
+            [recipeIds, userId]
+        );
+        return response.rows.map((row) => Number(row.id));
+    } catch (err) {
+        console.error(`Error thrown by db during getOwnedRecipeIds ${ err }`)
+        throw new Error(`Database error while checking recipe ownership: ${ err.message }`)
     } finally {
         client.release()
     }

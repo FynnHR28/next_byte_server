@@ -11,12 +11,13 @@ import {
     getRecipeBooksForUser,
     getRecipesForRecipeBook,
     createRecipeBook,
+    updateRecipeBook,
     deleteRecipeBook,
-    addRecipeToRecipeBook,
-    removeRecipeFromRecipeBook,
+    addRecipesToRecipeBook,
+    removeRecipesFromRecipeBook,
 } from "./recipe_functions.js";
 import { getReferenceValueFromId } from "../globals/global_functions.js";
-import { enforceAdminOnlyAccess, enforceAuthenticatedAccess } from '../serviceLayer/routes.js'
+import { enforceAuthenticatedAccess } from '../serviceLayer/routes.js'
 
 export default {
     Query: {
@@ -51,21 +52,25 @@ export default {
             enforceAuthenticatedAccess(context.userId)
             return updateRecipe(updateRecipeInput,context.userId, context.userRole);
         },
-        createRecipeBook: (_, { name }, context) => {
+        createRecipeBook: (_, { recipeBookInput }, context) => {
             enforceAuthenticatedAccess(context.userId)
-            return createRecipeBook(name, context.userId)
+            return createRecipeBook(recipeBookInput, context.userId)
+        },
+        updateRecipeBook: (_, { recipeBookId, recipeBookInput }, context) => {
+            enforceAuthenticatedAccess(context.userId)
+            return updateRecipeBook(recipeBookId, recipeBookInput, context.userId)
         },
         deleteRecipeBook: (_, { recipeBookId }, context) => {
             enforceAuthenticatedAccess(context.userId)
             return deleteRecipeBook(recipeBookId, context.userId)
         },
-        addRecipeToRecipeBook: (_, { recipeId, recipeBookId }, context) => {
+        addRecipesToRecipeBook: (_, { recipeIds, recipeBookId }, context) => {
             enforceAuthenticatedAccess(context.userId)
-            return addRecipeToRecipeBook(recipeId, recipeBookId, context.userId)
+            return addRecipesToRecipeBook(recipeIds, recipeBookId, context.userId)
         },
-        removeRecipeFromRecipeBook: (_, { recipeId, recipeBookId }, context) => {
+        removeRecipesFromRecipeBook: (_, { recipeIds, recipeBookId }, context) => {
             enforceAuthenticatedAccess(context.userId)
-            return removeRecipeFromRecipeBook(recipeId, recipeBookId, context.userId)
+            return removeRecipesFromRecipeBook(recipeIds, recipeBookId, context.userId)
         }
     },
 

@@ -90,16 +90,28 @@ type RecipeBook {
     id: ID!
     name: String!
     user_id: ID!
+    is_public: Boolean!
     created_at: String!
     updated_at: String!
+}
+
+input recipeBookInput {
+    name: String!
+    isPublic: Boolean
+}
+
+input updateRecipeBookInput {
+    name: String
+    isPublic: Boolean
 }
 
 type Mutation {
     updateRecipe(updateRecipeInput: updateRecipeInput!): Boolean!
     createRecipe(recipeInput: RecipeInput!): Boolean!
     deleteRecipe(recipeId: ID!): Boolean!
-    createRecipeBook(name: String!): ID!
+    createRecipeBook(recipeBookInput: recipeBookInput!): ID!
+    updateRecipeBook(recipeBookId: ID!, recipeBookInput: updateRecipeBookInput!): Boolean!
     deleteRecipeBook(recipeBookId: ID!): Boolean!
-    addRecipeToRecipeBook(recipeId: ID!, recipeBookId: ID!): Boolean!
-    removeRecipeFromRecipeBook(recipeId: ID!, recipeBookId: ID!): Boolean!
+    addRecipesToRecipeBook(recipeIds: [ID!]!, recipeBookId: ID!): Boolean!
+    removeRecipesFromRecipeBook(recipeIds: [ID!]!, recipeBookId: ID!): Boolean!
 }
