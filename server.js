@@ -6,11 +6,15 @@ import { mergedTypeDefs, mergedResolvers } from './graphql/index.js';
 import { authMiddleware } from "./auth/auth.js";
 import cookieParser from "cookie-parser";
 
+import dotenv from 'dotenv';
+// Load the environment file once for all files in this project
+dotenv.config()
+
 const PORT = 9000;
 const app = express();
 
 app.use(cors({
-    origin: `http://localhost:3000`, // Frontend origin
+    origin: `${process.env.APP_CLIENT_URL}`, // Frontend origin
     credentials: true
 }));
 

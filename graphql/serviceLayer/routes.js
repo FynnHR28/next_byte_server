@@ -7,5 +7,10 @@ export const enforceAuthenticatedAccess = (userId) => {
 
 export const enforceAdminOnlyAccess = (userRole) => {
     if(userRole != "admin") throw new Error("Unauthorized request on protected data");
-    return true
+    return true;
+}
+
+export const enfornceVerifiedAccess = (isVerified) => {
+    if (!isVerified) throw new Error('Unauthorized request on protected functionality');
+    return true;
 }

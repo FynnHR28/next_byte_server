@@ -1,9 +1,12 @@
-import { getUser, deleteUser, deactivateUser, activateUser, 
-    createUser, verifyUser, logout, refreshSession, revokeRefreshToken, revokeAllRefreshTokensForUser
+import { getUser, deleteUser, deactivateUser, activateUser,  resolveUserRole,
+    createUser, verifyUser, logout, refreshSession, revokeRefreshToken, revokeAllRefreshTokensForUser,
+    sendUserVerificationEmail,
+    verifyUserEmail
 } from "./user_functions.js";
 import { timestampsToDateResolver } from "../globals/global_res.js";
 import { enforceAdminOnlyAccess, enforceAuthenticatedAccess } from "../serviceLayer/routes.js";
 import { accessCookieOptions, refreshCookieOptions } from "../../auth/auth.js";
+
 
 
 export default {
@@ -76,6 +79,17 @@ export default {
             context.res.clearCookie("access_token", { path: "/" }); // Clear the cookie
             context.res.clearCookie("refresh_token", { path: "/" });
             return true;
+        },
+
+        sendVerificationEmail: async (_,{ email }, context) => {
+            enforceAuthenticatedAccess(context.userId);
+            await sendUserVerificationEmail(email, context.userId, context.isVerified)
+            return true;
+        },
+
+        verifyUserEmail: async (_, { verifyToken }) => {
+            await verifyUserEmail(verifyToken);
+            return true;
         }
     },
 
@@ -84,6 +98,10 @@ export default {
         is_active: (user,_, context) => {
             enforceAdminOnlyAccess(context.userRole)
             return user.is_active
+        },
+        role: (user, _, context) => {
+            enforceAuthenticatedAccess(context.userId)
+            return resolveUserRole(user.ref_user_role_id)
         }
     }
 }

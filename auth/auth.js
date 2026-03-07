@@ -12,6 +12,9 @@ export const ACCESS_TOKEN_TIME = "10m"; // 10 minutes
 export const ACCESS_COOKIE_MAX_AGE_MS = 10 * 60 * 1000; // 10 minutes
 export const REFRESH_COOKIE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
+const APP_VERIFY_SECRET = process.env.APP_VERIFY_SECRET;
+const VERIFY_TOKEN_TIME = "30m";
+
 const baseCookieOptions = {
   httpOnly: true,
   sameSite: "lax",
@@ -44,19 +47,28 @@ export const authMiddleware = (req, res, next) => {
     const user = jwt.verify(token, APP_SECRET); 
     req.userId = user.userId; // Attach the user ID to the request object
     req.userRole = user.userRole;
-    console.log(`id of requester: ${req.userId}, role: ${req.userRole}`)
+    req.isVerified = user.isVerified
+    console.log(`id of requester: ${req.userId}, role: ${req.userRole}, isVerified: ${req.isVerified}`)
   } catch (err) {
     console.error("Token verification failed:", err.message);
-    req.userId = null
-    req.userRole = null
+    req.userId = null;
+    req.userRole = null;
+    req.isVerified = null;
   }
   next();
 }
 
 // Sign a JWT access token using user ID and role
-export const signAccessToken = (userId, userRole) => {
-  return jwt.sign({ userId, userRole }, APP_SECRET, { expiresIn: ACCESS_TOKEN_TIME });
+export const signAccessToken = (userId, userRole, isVerified) => {
+  return jwt.sign({ userId, userRole, isVerified }, APP_SECRET, { expiresIn: ACCESS_TOKEN_TIME });
 };
+
+export const signVerificationToken = (userId, userEmail) => {
+  return jwt.sign({userId, userEmail }, APP_VERIFY_SECRET, { expiresIn: VERIFY_TOKEN_TIME})
+}
+export const unpackVerificationToken = (verifyToken) => {
+  return jwt.verify(verifyToken, APP_VERIFY_SECRET);
+}
 
 // Generate a random refresh token
 export const generateRefreshToken = () => {

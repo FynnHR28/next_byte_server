@@ -15,6 +15,7 @@ type User {
     state: String
     country: String
     is_active: Boolean!
+    is_verified: Boolean!
     last_login: String!
     timezone: String
     created_at: String!
@@ -26,13 +27,28 @@ type AuthPayload {
     user: User!
 }
 
+input UpdateUserInput {
+    id: ID!,
+    username: String, 
+    password: String, 
+    email: String, 
+    city: String, 
+    state: String, 
+    country: String, 
+    timezone: String
+}
+
+
+
 type Mutation {
     createUser(username: String!, password: String!, email: String!, city: String, state: String, country: String, timezone: String): User!
     login(email: String!, password: String!): AuthPayload!
     refreshToken: AuthPayload!
-    updateUser(id: ID!, username: String, password: String, email: String, city: String, state: String, country: String, is_active: Boolean, timezone: String): User!
+    updateUser(data: UpdateUserInput!): Boolean!
     deleteUser: Boolean!
     deactivateUser: Boolean!
     activateUser(email: String!): Boolean!
     logout: Boolean!
+    sendVerificationEmail(email:String!): Boolean!
+    verifyUserEmail(verifyToken: String!): Boolean!
 }
