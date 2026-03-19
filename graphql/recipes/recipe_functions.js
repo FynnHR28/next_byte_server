@@ -480,6 +480,11 @@ export const addRecipesToRecipeBook = async (recipeIds, recipeBookId, userId) =>
         throw new Error('recipeIds must contain at least one recipe id');
     }
 
+    const parsedRecipeBookId = Number(recipeBookId);
+    if (Number.isNaN(parsedRecipeBookId)) {
+        throw new Error('Invalid recipe book ID');
+    }
+
     const parsedRecipeIds = [...new Set(recipeIds.map((id) => Number(id)).filter((id) => !Number.isNaN(id)))];
     if (parsedRecipeIds.length < 1) {
         throw new Error('No valid recipe ids were provided');
@@ -488,7 +493,7 @@ export const addRecipesToRecipeBook = async (recipeIds, recipeBookId, userId) =>
     const client = await pool.connect();
     try {
         // Check if the recipe book belongs to the user
-        const belongsToUser = await checkIfRecipeBookBelongsToUser(recipeBookId, userId);
+        const belongsToUser = await checkIfRecipeBookBelongsToUser(parsedRecipeBookId, userId);
         if (!belongsToUser) {
             throw new Error('Recipe book not found or does not belong to user');
         }
@@ -502,17 +507,17 @@ export const addRecipesToRecipeBook = async (recipeIds, recipeBookId, userId) =>
         await client.query(
             `
             INSERT INTO public.recipe_book_recipe (recipe_book_id, recipe_id, user_id, created_at, updated_at)
-            SELECT $1, recipe_id, $2, NOW(), NOW()
-            FROM UNNEST($3::int[]) AS recipe_id
+            SELECT $1, t.recipe_id, $2, NOW(), NOW()
+            FROM UNNEST($3::int[]) AS t(recipe_id)
             WHERE NOT EXISTS (
                 SELECT 1
                 FROM public.recipe_book_recipe existing
                 WHERE existing.recipe_book_id = $1
-                  AND existing.recipe_id = recipe_id
+                  AND existing.recipe_id = t.recipe_id
                   AND existing.user_id = $2
             )
             `,
-            [recipeBookId, userId, ownedRecipeIds]
+            [parsedRecipeBookId, userId, ownedRecipeIds]
         );
 
         return true;
@@ -537,6 +542,11 @@ export const removeRecipesFromRecipeBook = async (recipeIds, recipeBookId, userI
         throw new Error('recipeIds must contain at least one recipe id');
     }
 
+    const parsedRecipeBookId = Number(recipeBookId);
+    if (Number.isNaN(parsedRecipeBookId)) {
+        throw new Error('Invalid recipe book ID');
+    }
+
     const parsedRecipeIds = [...new Set(recipeIds.map((id) => Number(id)).filter((id) => !Number.isNaN(id)))];
     if (parsedRecipeIds.length < 1) {
         throw new Error('No valid recipe ids were provided');
@@ -545,18 +555,18 @@ export const removeRecipesFromRecipeBook = async (recipeIds, recipeBookId, userI
     const client = await pool.connect();
     try {
         // Check if the recipe book belongs to the user
-        const belongsToUser = await checkIfRecipeBookBelongsToUser(recipeBookId, userId);
+        const belongsToUser = await checkIfRecipeBookBelongsToUser(parsedRecipeBookId, userId);
         if (!belongsToUser) {
             throw new Error('Recipe book not found or does not belong to user');
         }
-        
+
         // Delete recipes from the recipe book.
         await client.query(
             `
-            DELETE FROM public.recipe_book_recipe 
+            DELETE FROM public.recipe_book_recipe
             WHERE recipe_book_id = $1 AND recipe_id = ANY($2::int[]) AND user_id = $3
             `,
-            [recipeBookId, parsedRecipeIds, userId]
+            [parsedRecipeBookId, parsedRecipeIds, userId]
         );
 
         return true;
